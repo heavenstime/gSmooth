@@ -1,5 +1,34 @@
 # gSmooth
 
+** mex function for Gaussian smoothing (with x and y-directional differential and LOG) **
+gaussSmooth.c
+  Usage:
+    type = 0:  (Gauss smoothing)
+      smoothedImg   = gaussSmooth(inImg, type, sigma, P, extType)
+    type = 1:  (x and y-directional differential with Gauss smoothing)
+      [diffX diffY] = gaussSmooth(inImg, type, sigma, P, extType)
+    type = 2:  (Laplacian of Gaussian)
+      logImg        = gaussSmooth(inImg, type, sigma, P, extType)
+  Paramter
+    inImg   : input image
+    type    : 0 blur, 1 diff (two output), 2 : LOG
+    sigma   : sigma
+    P       : 2 or 4 or 6 : order of Fourier series
+    extType :  0: zero extension,  1: the value of edge is used for extension
+
+  Output: (The number of output is one or two.)
+    smoothImg: Gaussian smoothed image
+    diffX    : Gaussian smoothed x-directional differential image
+    diffY    : Gaussian smoothed x-directional differential image
+    lapImg   : Laplacian of Gaussian smoothed (LOG) image
+
+testSmooth.m : main program for test.
+
+img1.pgm     : Boat image for test.
+
+** matlab and mex (for Gaussian smoothing and for sinusoidal integral, respectively)  **
+  (This is an older version.)
+  
 gSmooth.m  : a function to calculate Gaussian smoothing
    [blurImg blurImgY] = gSmooth(inImg, type, sigma, P, extType)
    inImg   : input image
