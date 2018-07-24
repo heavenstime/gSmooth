@@ -44,7 +44,7 @@ double coef16[] = {-2.6101454448e-01, 2.8783036200e-01, -1.6006675449e-01, 5.320
 
   double coef26[] = {-4.8526928608e-06, 2.6100483926e-01, -5.7567042875e-01, 4.8019055951e-01, -2.1282019739e-01, 5.5731316905e-02, -9.0512193281e-03, -1.9174786423e-05, 2.5512801140e-01, -5.2580869246e-01, 3.9156605759e-01, -1.4811818225e-01, 3.1603992605e-02, -4.0228177347e-03, -4.9872068291e-05, 2.4904509235e-01, -4.7795220081e-01, 3.1576217126e-01, -1.0112203057e-01, 1.7345418863e-02, -1.7459478551e-03, -1.0990253007e-04, 2.4275006219e-01, -4.3238944727e-01, 2.5177699695e-01, -6.7763707535e-02, 9.1654045904e-03, -7.9072326202e-04, -2.1478494543e-04, 2.3623274959e-01, -3.8935490302e-01, 1.9845308256e-01, -4.4637003891e-02, 4.5850084572e-03, -4.4936171980e-04};
 
-void slideFilter(int type, double *vect, int L, int K, int extType, int P, double *cosPara, double *sinPara, double *filter1, double *filter2, double *outVect1, double *outVect2);
+void slideFilter(int type, double *vect, int L, int K, int extType, int P, double *cosPara, double *sinPara, double *filter1, double *filter2, double *outVect1, double *outVect2, int oStep);
 void calFilterVal(int type, double *cosTmp, double *sinTmp, double *cosPara, double *sinPara, double add, double subtract, int P, double *filter1, double *filter2, double *outVect1, double *outVect2, int pos);
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   double *inImg, sigma;
@@ -52,9 +52,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
   double *outImg1, *outImg2;
 
-  double *xBlurImg, *xTranImg, filter1[7], filter2[7], *outVect1, *outVect2, sigmaPN, sigmaN, sigmaDiffN, interCoefL, interCoefU;
+  double *xBlurImg, *xTranImg, filter1[7], filter2[7], sigmaPN, sigmaN, sigmaDiffN, interCoefL, interCoefU;
   double *coef0, *coef1, *coef2, coefN; 
-  double paraTheta, cosPara[6], sinPara[6];
+  double paraTheta, cosPara[6], sinPara[6], *dummy;
   int    K, m, n, pos, maxMN, p, pd, P1, interType, interPosC, interPosS;
 
   if (nrhs != 5 ) {
@@ -92,13 +92,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   
   /* For work */
   P1 = P + 1;
-  maxMN = (M > N) ? M : N;
-  
   xBlurImg = (double *) mxMalloc(sizeof(double) * M * N);
-  outVect1 = (double *) mxMalloc(sizeof(double) * maxMN);
   if (type != 0) {
     xTranImg = (double *) mxMalloc(sizeof(double) * M * N);
-    outVect2 = (double *) mxMalloc(sizeof(double) * maxMN);
   }
 
   /* Fix K and filter coefficients */
@@ -165,30 +161,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   for(n = 0 ; n < N ; ++n) {
     switch(type) {
     case 0:
-      slideFilter(1, & (inImg[n * M]), M, K, extType, P, cosPara, sinPara, filter1, filter2, outVect1, outVect2);
-      pos = n;
-      for(m = 0 ; m < M ; ++m) {
-	xBlurImg[pos] = outVect1[m];
-	pos += N;
-      }
+      slideFilter(1, & (inImg[n * M]), M, K, extType, P, cosPara, sinPara, filter1, filter2, &(xBlurImg[n]), dummy, N);
       break;
     case 1:
-      slideFilter(4, & (inImg[n * M]), M, K, extType, P, cosPara, sinPara, filter1, filter2, outVect1, outVect2);
-      pos = n;
-      for(m = 0 ; m < M ; ++m) {
-	xBlurImg[pos] = outVect1[m];
-	xTranImg[pos] = outVect2[m];
-	pos += N;
-      }
+      slideFilter(4, & (inImg[n * M]), M, K, extType, P, cosPara, sinPara, filter1, filter2, &(xBlurImg[n]), &(xTranImg[n]), N);
       break;
     case 2:
-      slideFilter(3, & (inImg[n * M]), M, K, extType, P, cosPara, sinPara, filter1, filter2, outVect1, outVect2);
-      pos = n;
-      for(m = 0 ; m < M ; ++m) {
-	xBlurImg[pos] = outVect1[m];
-	xTranImg[pos] = outVect2[m];
-	pos += N;
-      }
+      slideFilter(3, & (inImg[n * M]), M, K, extType, P, cosPara, sinPara, filter1, filter2, &(xBlurImg[n]), &(xTranImg[n]), N);
       break;
     }
   }
@@ -197,58 +176,36 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   for(m = 0 ; m < M ; ++m) {
     switch(type) {
     case 0:
-      slideFilter(1, & (xBlurImg[m * N]), N, K, extType, P, cosPara, sinPara, filter1, filter2, outVect1, outVect2);
-      pos = m;
-      for(n = 0 ; n < N ; ++n) {
-	outImg1[pos] = outVect1[n];
-	pos += M;
-      }
+      slideFilter(1, & (xBlurImg[m * N]), N, K, extType, P, cosPara, sinPara, filter1, filter2, &(outImg1[m]), dummy, M);
       break;
     case 1:
-      slideFilter(2, & (xBlurImg[m * N]), N, K, extType, P, cosPara, sinPara, filter2, filter2, outVect1, outVect2);
-      pos = m;
-      for(n = 0 ; n < N ; ++n) {
-	outImg1[pos] = outVect1[n];
-	pos += M;
-      }
-      slideFilter(1, & (xTranImg[m * N]), N, K, extType, P, cosPara, sinPara, filter1, filter2, outVect1, outVect2);
-      pos = m;
-      for(n = 0 ; n < N ; ++n) {
-	outImg2[pos] = outVect1[n];
-	pos += M;
-      }
+      slideFilter(2, & (xBlurImg[m * N]), N, K, extType, P, cosPara, sinPara, filter2, filter2, &(outImg1[m]), dummy, M);
+      slideFilter(1, & (xTranImg[m * N]), N, K, extType, P, cosPara, sinPara, filter1, filter2, &(outImg2[m]), dummy, M);
       break;
     case 2:
-      slideFilter(1, & (xTranImg[m * N]), N, K, extType, P, cosPara, sinPara, filter1, filter2, outVect1, outVect2);
-      pos = m;
-      for(n = 0 ; n < N ; ++n) {
-	outImg1[pos] = outVect1[n];
-	pos += M;
-      }
-      slideFilter(1, & (xBlurImg[m * N]), N, K, extType, P, cosPara, sinPara, filter2, filter2, outVect1, outVect2);
-      pos = m;
-      for(n = 0 ; n < N ; ++n) {
-	outImg1[pos] += outVect1[n];
-	pos += M;
-      }
+      slideFilter(1, & (xTranImg[m * N]), N, K, extType, P, cosPara, sinPara, filter1, filter2, &(outImg1[m]), dummy, M);
       break;
     }
   }
-
+  if (type == 2) {
+    for(m = 0 ; m < M ; ++m) {
+      slideFilter(1, & (xBlurImg[m * N]), N, K, extType, P, cosPara, sinPara, filter2, filter2, &(xTranImg[m]), dummy, M);
+    }
+    for(pos = 0 ; pos < M * N ; ++pos) 	outImg1[pos] += xTranImg[pos];
+  }
+  
   /* Free memories */
   mxFree(xBlurImg);
-  mxFree(outVect1);
   if (type != 0) {
     mxFree(xTranImg);
-    mxFree(outVect2);
   }
   return;
 }
 
 /* type : 0: cos, 1 sin, 2: cos cos, 3: cos sin */
-void slideFilter(int type, double *vect, int L, int K, int extType, int P, double *cosPara, double *sinPara, double *filter1, double *filter2, double *outVect1, double *outVect2) {
+void slideFilter(int type, double *vect, int L, int K, int extType, int P, double *cosPara, double *sinPara, double *filter1, double *filter2, double *outVect1, double *outVect2, int oStep) {
   double cosTmp[7], sinTmp[6], extS, extE;
-  int    p, pd, pos, K2, posK = 0, posK2 = 0;
+  int    p, pd, pos, K2, oPos = 0, posK2 = 0;
   
 /* For initial position */
   if (extType == 0) {
@@ -282,20 +239,20 @@ void slideFilter(int type, double *vect, int L, int K, int extType, int P, doubl
     /*      |     L     |
           | K . K |                         */
     for (pos = K ; pos < K2 ; ++pos) {
-      calFilterVal(type, cosTmp, sinTmp, cosPara, sinPara, vect[pos], extS, P, filter1, filter2, outVect1, outVect2, posK);
-      ++posK;
+      calFilterVal(type, cosTmp, sinTmp, cosPara, sinPara, vect[pos], extS, P, filter1, filter2, outVect1, outVect2, oPos);
+      oPos += oStep;
     }
     /*      |     L     |
               | K . K |                         */
     for (pos = K2 ; pos < L ; ++pos) {
-      calFilterVal(type, cosTmp, sinTmp, cosPara, sinPara, vect[pos], vect[posK2], P, filter1, filter2, outVect1, outVect2, posK);
-      ++posK; ++posK2;
+      calFilterVal(type, cosTmp, sinTmp, cosPara, sinPara, vect[pos], vect[posK2], P, filter1, filter2, outVect1, outVect2, oPos);
+      oPos += oStep; ++posK2;
     }
     /*      |     L     |
                   | K . K |                         */
     for (pos = 0 ; pos < K ; ++pos) {
-      calFilterVal(type, cosTmp, sinTmp, cosPara, sinPara, extE, vect[posK2], P, filter1, filter2, outVect1, outVect2, posK);
-      ++posK; ++posK2;
+      calFilterVal(type, cosTmp, sinTmp, cosPara, sinPara, extE, vect[posK2], P, filter1, filter2, outVect1, outVect2, oPos);
+      oPos += oStep; ++posK2;
     }
   } else if (L >= K) {
     /*      |  L  |
@@ -306,20 +263,20 @@ void slideFilter(int type, double *vect, int L, int K, int extType, int P, doubl
     /*      |  L  |
          | K . K |                         */
     for (pos = K ; pos < L ; ++pos) {
-      calFilterVal(type, cosTmp, sinTmp, cosPara, sinPara, vect[pos], extS, P, filter1, filter2, outVect1, outVect2, posK);
-      ++posK;
+      calFilterVal(type, cosTmp, sinTmp, cosPara, sinPara, vect[pos], extS, P, filter1, filter2, outVect1, outVect2, oPos);
+      oPos += oStep;
     }
     /*      |  L  |
            | K . K |                         */
     for (pos = L ; pos < K2 ; ++pos) {
-      calFilterVal(type, cosTmp, sinTmp, cosPara, sinPara, extE, extS, P, filter1, filter2, outVect1, outVect2, posK);
-      ++posK; ++posK2;
+      calFilterVal(type, cosTmp, sinTmp, cosPara, sinPara, extE, extS, P, filter1, filter2, outVect1, outVect2, oPos);
+      oPos += oStep; ++posK2;
     }
     /*      |  L  |
              | K . K |                         */
     for (pos = K2 ; pos < L + K ; ++pos) {
-      calFilterVal(type, cosTmp, sinTmp, cosPara, sinPara, extE, vect[posK2], P, filter1, filter2, outVect1, outVect2, posK);
-      ++posK; ++posK2;
+      calFilterVal(type, cosTmp, sinTmp, cosPara, sinPara, extE, vect[posK2], P, filter1, filter2, outVect1, outVect2, oPos);
+      oPos += oStep; ++posK2;
     }
   } else { /* L < K */
     /*          |  L  |
@@ -335,8 +292,8 @@ void slideFilter(int type, double *vect, int L, int K, int extType, int P, doubl
     /*          |  L  |
            |   K   .   K   |                         */
     for (pos = K ; pos < L + K ; ++pos) {
-      calFilterVal(type, cosTmp, sinTmp, cosPara, sinPara, extE, extS, P, filter1, filter2, outVect1, outVect2, posK);
-      ++posK;
+      calFilterVal(type, cosTmp, sinTmp, cosPara, sinPara, extE, extS, P, filter1, filter2, outVect1, outVect2, oPos);
+      oPos += oStep;
     }
   }
   return;
