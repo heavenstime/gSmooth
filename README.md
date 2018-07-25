@@ -1,6 +1,9 @@
 # gaussSmooth (gSmooth) 
 The programs are licenced by GPL v3. 
 
+## File for the explanation of the algorithm.
+* gaussSmooth.pdf
+
 ## A mex function for Gaussian smoothing (with x and y-directional differential and LOG)
 It works only by the function.  
   
@@ -33,7 +36,7 @@ It works only by the function.
   
 * gSmooth.m  : a function to calculate Gaussian smoothing  
   * Usage:
-    * `[blurImg blurImgY] = gSmooth(inImg, type, sigma, P, extType){  
+    * `[blurImg blurImgY] = gSmooth(inImg, type, sigma, P, extType)`  
   * Paramter:
      * inImg   : input image  
      * type    : 0 blur, 1 diff (two output), 2 : LOG 
