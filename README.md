@@ -1,11 +1,11 @@
-# gaussSmooth (gSmooth) 
+# gaussSmooth
 The programs are licenced by GPL v3. 
 
 ## File for the explanation of the algorithm.
 * gaussSmooth.pdf
 
 ## A mex function for Gaussian smoothing (with x and y-directional differential and LOG)
-It works only by the function.  
+The latest version. It works only by the mex function.  
   
 * gaussSmooth.c
   * Usage:
