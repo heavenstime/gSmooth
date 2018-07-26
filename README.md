@@ -7,22 +7,22 @@ The programs are licenced by GPL v3.
 ## A mex function for Gaussian smoothing (with x and y-directional differential and LOG)
 It works only by the function.  
   
-* gaussSmooth.c  
-  * Usage:  
+* gaussSmooth.c
+  * Usage:
     * type = 0:  (Gauss smoothing)  
       `smoothedImg   = gaussSmooth(inImg, type, sigma, P, extType)`  
     * type = 1:  (x and y-directional differential with Gauss smoothing)  
       `[diffX diffY] = gaussSmooth(inImg, type, sigma, P, extType)`  
     * type = 2:  (Laplacian of Gaussian)  
       `logImg        = gaussSmooth(inImg, type, sigma, P, extType)`  
-  * Paramter:  
+  * Paramter:
     * inImg   : input image  
-    * type    : 0 blur, 1 diff (two output), 2 : LOG  
+    * type    : 0 blur, 1 diff (two outputs), 2 : LOG  
     * sigma   : sigma  
     * P       : 2 or 4 or 6 : order of Fourier series  
     * extType :  0: zero extension,  1: the value of edge is used for extension  
-  * Output: (The number of output is one or two.)  
-    * smoothImg: Gaussian smoothed image  
+  * Output: (The number of output is one or two.)
+    * smoothImg: Gaussian smoothed image
     * diffX    : Gaussian smoothed x-directional differential image  
     * diffY    : Gaussian smoothed x-directional differential image  
     * lapImg   : Laplacian of Gaussian smoothed (LOG) image  
@@ -30,8 +30,15 @@ It works only by the function.
 * testSmooth.m : main program for test.  
   
 * img1.pgm     : Boat image for test.  
-  
-## matlab and mex (for Gaussian smoothing and for sinusoidal integral, respectively)  
+
+## A matlab program for calculate coefficients and truncation errors
+* totalError.m : main program
+  * output
+    * coefficientsForC.txt : coefficients for C program.
+    * dataPlotFunc.txt : data to plot function of approximated and true Gaussian function
+    * errorForPlot.txt : data to plot truncation errors 
+
+## A matlab and mex (for Gaussian smoothing and for sinusoidal integral, respectively)  
   (This is an older version.)  
   
 * gSmooth.m  : a function to calculate Gaussian smoothing  
