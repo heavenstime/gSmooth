@@ -1,11 +1,13 @@
-# gaussSmooth (gSmooth) 
-The programs are licenced by GPL v3. 
+# gaussSmooth
+* The programs are licenced by GPL v3. 
+* Gaussian smoothing (with x and y-directional differential and LOG) are approximately calculated by using sliding discrete Fourier transform of order P (= 2, 4, or 6).
+* Let M, N, and K be the numbers of pixcels for vertical, horizontal, and window sizes, then the calculation complexity is (M + K) * (N + K) * P. 
 
 ## File for the explanation of the algorithm.
 * gaussSmooth.pdf
 
 ## A mex function for Gaussian smoothing (with x and y-directional differential and LOG)
-It works only by the function.  
+The latest version. It works only by the mex function.  
   
 * gaussSmooth.c
   * Usage:
