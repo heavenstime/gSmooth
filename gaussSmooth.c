@@ -44,18 +44,17 @@ double coef16[] = {2.6101454448e-01, -2.8783036200e-01, 1.6006675449e-01, -5.320
 double coef26[] = {-4.8526928607e-06, 2.6100483926e-01, -5.7567042875e-01, 4.8019055951e-01, -2.1282019739e-01, 5.5731316905e-02, -9.0512193281e-03, -1.9174786423e-05, 2.5512801140e-01, -5.2580869246e-01, 3.9156605759e-01, -1.4811818225e-01, 3.1603992605e-02, -4.0228177347e-03, -4.9872068291e-05, 2.4904509235e-01, -4.7795220081e-01, 3.1576217126e-01, -1.0112203057e-01, 1.7345418863e-02, -1.7459478551e-03, -1.0990253007e-04, 2.4275006219e-01, -4.3238944727e-01, 2.5177699695e-01, -6.7763707535e-02, 9.1654045904e-03, -7.9072326202e-04, -2.1478494543e-04, 2.3623274959e-01, -3.8935490302e-01, 1.9845308256e-01, -4.4637003891e-02, 4.5850084572e-03, -4.4936171980e-04};
 
 
-void slideFilter(int type, double *vect, int L, int K, int extType, int P, double *cosPara, double *sinPara, double *filter1, double *filter2, double *outVect1, double *outVect2, int oStep);
-void calFilterVal(int type, double *cosTmp, double *sinTmp, double *cosPara, double *sinPara, double add, double subtract, int P, double *filter1, double *filter2, double *outVect1, double *outVect2, int pos);
+void slideFilterExt(int type, double *vect, int L, int K, int extType, int P, double *cosPara, double *sinPara, double *cosInitCoef, double *sinInitCoef, double *filter1, double *filter2, double *outVect1, double *outVect2, int outStep, double *lineAdd, double *lineSub);
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   double *inImg, sigma;
-  int     type, P, extType, M, N;
+  int     type, P, extType, M, N, H;
 
   double *outImg1, *outImg2;
 
   double *xBlurImg, *xTranImg, filter1[7], filter2[7], sigmaPN, sigmaN, sigmaDiffN, interCoefL, interCoefU;
-  double *coef0, *coef1, *coef2, coefN; 
-  double paraTheta, cosPara[6], sinPara[6], *dummy;
-  int    K, m, n, pos, maxMN, p, pd, P1, interType, interPosC, interPosS;
+  double *lineAdd, *lineSub, *coef0, *coef1, *coef2, coefN; 
+  double paraTheta, cosPara[6], sinPara[6], cosInitCoef[6], sinInitCoef[6], *nullD = NULL;
+  int    K, K2, m, n, pos, maxMN, p, pd, P1, interType, interPosC, interPosS;
 
   if (nrhs != 5 ) {
     mexErrMsgIdAndTxt("In0", "Number of parameters are not correct: gaussSmooth(inImg, type, sigma, P, extType)");
@@ -109,18 +108,25 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
   /* Decide K */ 
   K = (int) (sigma * PI / sigmaPN + 0.5);
-  // printf("K = %d\n", K);
+  printf("K = %d\n", K);
+  K2 = K + K;
 
-  /* Interporation of sigma for Fourier coefficients */
+  /* Line extension  */
+  lineAdd = (double *) mxMalloc(sizeof(double) * (K + ((M > N)? M : N)));
+  lineSub = (double *) mxMalloc(sizeof(double) * (K + ((M > N)? M : N)));
+
+  /* Interporation of sigma to interporate Fourier coefficients */
   coefN      = PI / K;
   sigmaN     = sigma * coefN;
   sigmaDiffN = (sigmaN - sigmaPN) / sigmaPN;
 
-  if (sigmaDiffN < -0.5)     interType = 0;
+  /* Set Interporation type */
+  if (sigmaDiffN < -0.5)     interType = 0; 
   else if (sigmaDiffN < 0.0) interType = 1;
   else if (sigmaDiffN < 0.5) interType = 2;
   else                       interType = 3;
 
+  /* Interporation of Fourier coeficients */
   interCoefU = (sigmaDiffN - 0.05 * (interType - 2)) / 0.05;
   interCoefL = 1.0 - interCoefU;
   interCoefU *= coefN;
@@ -129,247 +135,250 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   interPosS  = P  * interType;
   //printf("sigmaDiffN = %lf type = %d  L %lf U %lf  \n",  sigmaDiffN, interType, interCoefL, interCoefU);
   switch(type) {
-    case 0:
-      for (p = 0 ; p <= P ; ++p) {
-	filter1[p] = interCoefL * coef0[interPosC + p] + interCoefU * coef0[interPosC + P1 + p];
-      }
-      break;
-    case 1:
-      p = 0;
+  case 0: /* Gauss smooth */
+    for (p = 0 ; p <= P ; ++p) {
       filter1[p] = interCoefL * coef0[interPosC + p] + interCoefU * coef0[interPosC + P1 + p];
-      for (p = 1 ; p <= P ; ++p) {
-	pd = p - 1;
-	filter1[p]  = interCoefL * coef0[interPosC + p] + interCoefU * coef0[interPosC + P1 + p];
-	filter2[pd] = interCoefL * coef1[interPosS + pd] + interCoefU * coef1[interPosS + P + pd];
-      }
-      break;
-    case 2:
-      for (p = 0 ; p <= P ; ++p) {
-	filter1[p] = interCoefL * coef0[interPosC + p] + interCoefU * coef0[interPosC + P1 + p];
-	filter2[p] = interCoefL * coef2[interPosC + p] + interCoefU * coef2[interPosC + P1 + p];
-      }
-      break;
+    }
+    break;
+  case 1: /* Gauss differential */
+    p = 0;
+    filter1[p] = interCoefL * coef0[interPosC + p] + interCoefU * coef0[interPosC + P1 + p];
+    for (p = 1 ; p <= P ; ++p) {
+      pd = p - 1;
+      filter1[p]  = interCoefL * coef0[interPosC + p] + interCoefU * coef0[interPosC + P1 + p];
+      filter2[pd] = interCoefL * coef1[interPosS + pd] + interCoefU * coef1[interPosS + P + pd];
+    }
+    break;
+  case 2: /* Gauss Laplacian */
+    for (p = 0 ; p <= P ; ++p) {
+      filter1[p] = interCoefL * coef0[interPosC + p] + interCoefU * coef0[interPosC + P1 + p];
+      filter2[p] = interCoefL * coef2[interPosC + p] + interCoefU * coef2[interPosC + P1 + p];
+    }
+    break;
   }
+
+  /* Parameter for sliding Fourier transform */
+  /* Initial coefficient of integral signal */
   paraTheta =  PI / K;
-  for(p = 1 ; p <= P ; ++p) {
-    pd = p - 1;
-    cosPara[pd] = cos(p * paraTheta);
-    sinPara[pd] = sin(p * paraTheta);
-  }
-  
-  /* Vertical transformation */
-  for(n = 0 ; n < N ; ++n) {
-    switch(type) {
-    case 0:
-      slideFilter(1, & (inImg[n * M]), M, K, extType, P, cosPara, sinPara, filter1, filter2, &(xBlurImg[n]), dummy, N);
-      break;
-    case 1:
-      slideFilter(4, & (inImg[n * M]), M, K, extType, P, cosPara, sinPara, filter1, filter2, &(xBlurImg[n]), &(xTranImg[n]), N);
-      break;
-    case 2:
-      slideFilter(3, & (inImg[n * M]), M, K, extType, P, cosPara, sinPara, filter1, filter2, &(xBlurImg[n]), &(xTranImg[n]), N);
-      break;
+  for(p = 0 ; p < P ; ++p) {
+    cosPara[p] = cos((p + 1) * paraTheta);
+    sinPara[p] = sin((p + 1) * paraTheta);
+    if ((p + 1) % K2 == 0) {
+      cosInitCoef[p] = K;
+      sinInitCoef[p] = 0.0;
+    } else if ((p + 1) % 2 == 0) {
+      cosInitCoef[p]     = 0.0;
+      sinInitCoef[p] = 0.0;
+    } else {
+      cosInitCoef[p] = 1.0;
+      sinInitCoef[p] = sinPara[p] / (1 - cosPara[p]);
     }
   }
 
-  /* Horizontal transformation */
-  for(m = 0 ; m < M ; ++m) {
-    switch(type) {
-    case 0:
-      slideFilter(1, & (xBlurImg[m * N]), N, K, extType, P, cosPara, sinPara, filter1, filter2, &(outImg1[m]), dummy, M);
-      break;
-    case 1:
-      slideFilter(2, & (xBlurImg[m * N]), N, K, extType, P, cosPara, sinPara, filter2, filter2, &(outImg1[m]), dummy, M);
-      slideFilter(1, & (xTranImg[m * N]), N, K, extType, P, cosPara, sinPara, filter1, filter2, &(outImg2[m]), dummy, M);
-      break;
-    case 2:
-      slideFilter(1, & (xTranImg[m * N]), N, K, extType, P, cosPara, sinPara, filter1, filter2, &(outImg1[m]), dummy, M);
-      break;
+    /* Vertical transformation */
+    for (pos = 0  ; pos < K      ; ++pos) lineSub[pos] = 0.0;
+    if (extType == 0) {
+      H = (M > K)? K2 : (M + K); 
+      for (pos = M ; pos < M + K ; ++pos) lineAdd[pos] = 0.0;
+      for (pos = K ; pos < H ; ++pos) lineSub[pos] = 0.0;
     }
-  }
-  if (type == 2) {
+    for(n = 0 ; n < N ; ++n) {
+      switch(type) {
+      case 0: /* Gauss smooth */
+	slideFilterExt(1, & (inImg[n * M]), M, K, extType, P, cosPara, sinPara, cosInitCoef, sinInitCoef, filter1, nullD, &(xBlurImg[n]), nullD, N, lineAdd, lineSub);
+	//slideFilterExt(1, & (inImg[n * M]), M, K, extType, P, cosPara, sinPara, filter1, nullD, &(outImg1[n * M]), nullD, 1, lineAdd, lineSub);
+	break;
+      case 1: /* Gauss differential */
+	slideFilterExt(4, & (inImg[n * M]), M, K, extType, P, cosPara, sinPara, cosInitCoef, sinInitCoef, filter1, filter2, &(xBlurImg[n]), &(xTranImg[n]), N, lineAdd, lineSub);
+	break;
+      case 2:
+	slideFilterExt(3, & (inImg[n * M]), M, K, extType, P, cosPara, sinPara, cosInitCoef, sinInitCoef, filter1, filter2, &(xBlurImg[n]), &(xTranImg[n]), N, lineAdd, lineSub);
+	break;
+      }
+    }
+
+    /* Horizontal transformation */
+    if (extType == 0) {
+      H = (N > K)? K2 : (N + K);
+      for (pos = N ; pos < N + K ; ++pos) lineAdd[pos] = 0.0;
+      for (pos = K ; pos < H  ; ++pos) lineSub[pos] = 0.0;
+    }
     for(m = 0 ; m < M ; ++m) {
-      slideFilter(1, & (xBlurImg[m * N]), N, K, extType, P, cosPara, sinPara, filter2, filter2, &(xTranImg[m]), dummy, M);
+      switch(type) {
+      case 0: /* Gauss smooth */
+	slideFilterExt(1, & (xBlurImg[m * N]), N, K, extType, P, cosPara, sinPara, cosInitCoef, sinInitCoef, filter1, nullD, &(outImg1[m]), nullD, M, lineAdd, lineSub);
+	break;
+      case 1: /* Gauss differential */
+	slideFilterExt(2, & (xBlurImg[m * N]), N, K, extType, P, cosPara, sinPara, cosInitCoef, sinInitCoef, filter2, nullD, &(outImg1[m]), nullD, M, lineAdd, lineSub);
+	slideFilterExt(1, & (xTranImg[m * N]), N, K, extType, P, cosPara, sinPara, cosInitCoef, sinInitCoef, filter1, nullD, &(outImg2[m]), nullD, M, lineAdd, lineSub);
+	break;
+      case 2: /* Gauss Laplacian */
+	slideFilterExt(1, & (xTranImg[m * N]), N, K, extType, P, cosPara, sinPara, cosInitCoef, sinInitCoef, filter1, nullD, &(outImg1[m]), nullD, M, lineAdd, lineSub);
+	slideFilterExt(5, & (xBlurImg[m * N]), N, K, extType, P, cosPara, sinPara, cosInitCoef, sinInitCoef, filter2, nullD, &(outImg1[m]), nullD, M, lineAdd, lineSub);
+	break;
+      }
     }
-    for(pos = 0 ; pos < M * N ; ++pos) 	outImg1[pos] += xTranImg[pos];
-  }
   
   /* Free memories */
   mxFree(xBlurImg);
-  if (type != 0) {
-    mxFree(xTranImg);
-  }
+  mxFree(lineAdd);
+  mxFree(lineSub);
+  if (type != 0)  mxFree(xTranImg);
   return;
 }
 
-/* type : 0: cos, 1 sin, 2: cos cos, 3: cos sin */
-void slideFilter(int type, double *vect, int L, int K, int extType, int P, double *cosPara, double *sinPara, double *filter1, double *filter2, double *outVect1, double *outVect2, int oStep) {
-  double cosTmp[7], sinTmp[6], extS, extE;
-  int    p, pd, pos, K2, oPos = 0, posK2 = 0;
-  
-/* For initial position */
-  if (extType == 0) {
-    extS = extE = 0.0;
-  } else {
-    extS = vect[0]; extE = vect[L - 1]; 
-  }
-  K2 = K + K;
-  cosTmp[0] = K * extS;
-  for (p = 1 ; p <= P ; ++p) {
-    pd = p - 1;
-    if (p % K2 == 0) {
-      cosTmp[p]  = K * extS;
-      sinTmp[pd] = 0.0;
-    } else if (p % 2 == 0) {
-      cosTmp[p]  = 0.0;
-      sinTmp[pd] = 0.0;
-    } else {
-      cosTmp[p]  = extS;
-      sinTmp[pd] = extS * sinPara[pd] / (1 - cosPara[pd]);
-    }
-  }
-    if (L >= K2) {
-    /*      |     L     |
-     | K . K |                         */
-    for (pos = 0 ; pos < K ; ++pos) {
-      calFilterVal(0, cosTmp, sinTmp, cosPara, sinPara, vect[pos], 0.0, P, filter1, filter2, outVect1, outVect2, 0);
-    }
+/* Type 0: no output, 1: cos, 2: sin, 3: cos cos, 4: cos sin, 5: cos with output addition */
+void slideFilterExt(int type, double *vect, int L, int K, int extType, int P, double *cosPara, double *sinPara, double *cosInitCoef, double *sinInitCoef, double *filter1, double *filter2, double *outVect1, double *outVect2, int outStep, double *lineAdd, double *lineSub) {
+  double inte, inteCos[6], inteSin[6], extS, inteCosTmp, inteSinTmp, add, sub, val1, val2;
+  int p, ordPos, pos, outPos = 0, K2 = K + K, nInte = L + K, H;
 
-    /*      |     L     |
-          | K . K |                         */
-    for (pos = K ; pos < K2 ; ++pos) {
-      calFilterVal(type, cosTmp, sinTmp, cosPara, sinPara, vect[pos], extS, P, filter1, filter2, outVect1, outVect2, oPos);
-      oPos += oStep;
-    }
-    /*      |     L     |
-              | K . K |                         */
-    for (pos = K2 ; pos < L ; ++pos) {
-      calFilterVal(type, cosTmp, sinTmp, cosPara, sinPara, vect[pos], vect[posK2], P, filter1, filter2, outVect1, outVect2, oPos);
-      oPos += oStep; ++posK2;
-    }
-    /*      |     L     |
-                  | K . K |                         */
-    for (pos = 0 ; pos < K ; ++pos) {
-      calFilterVal(type, cosTmp, sinTmp, cosPara, sinPara, extE, vect[posK2], P, filter1, filter2, outVect1, outVect2, oPos);
-      oPos += oStep; ++posK2;
-    }
-  } else if (L >= K) {
-    /*      |  L  |
-      | K . K |                         */
-    for (pos = 0 ; pos < K ; ++pos) {
-      calFilterVal(0, cosTmp, sinTmp, cosPara, sinPara, vect[pos], 0.0, P, filter1, filter2, outVect1, outVect2, 0);
-    }
-    /*      |  L  |
-         | K . K |                         */
-    for (pos = K ; pos < L ; ++pos) {
-      calFilterVal(type, cosTmp, sinTmp, cosPara, sinPara, vect[pos], extS, P, filter1, filter2, outVect1, outVect2, oPos);
-      oPos += oStep;
-    }
-    /*      |  L  |
-           | K . K |                         */
-    for (pos = L ; pos < K2 ; ++pos) {
-      calFilterVal(type, cosTmp, sinTmp, cosPara, sinPara, extE, extS, P, filter1, filter2, outVect1, outVect2, oPos);
-      oPos += oStep; ++posK2;
-    }
-    /*      |  L  |
-             | K . K |                         */
-    for (pos = K2 ; pos < L + K ; ++pos) {
-      calFilterVal(type, cosTmp, sinTmp, cosPara, sinPara, extE, vect[posK2], P, filter1, filter2, outVect1, outVect2, oPos);
-      oPos += oStep; ++posK2;
-    }
-  } else { /* L < K */
-    /*          |  L  |
-    |   K   .   K   |                         */
-    for (pos = 0 ; pos < L ; ++pos) {
-      calFilterVal(0, cosTmp, sinTmp, cosPara, sinPara, vect[pos], 0.0, P, filter1, filter2, outVect1, outVect2, 0);
-    }
-    /*          |  L  |
-       |   K   .   K   |                         */
-    for (pos = L ; pos < K ; ++pos) {
-      calFilterVal(0, cosTmp, sinTmp, cosPara, sinPara, extE, 0.0, P, filter1, filter2, outVect1, outVect2, 0);
-    }
-    /*          |  L  |
-           |   K   .   K   |                         */
-    for (pos = K ; pos < L + K ; ++pos) {
-      calFilterVal(type, cosTmp, sinTmp, cosPara, sinPara, extE, extS, P, filter1, filter2, outVect1, outVect2, oPos);
-      oPos += oStep;
-    }
-  }
-  return;
-}
-
- void calFilterVal(int type, double *cosTmp, double *sinTmp, double *cosPara, double *sinPara, double add, double subtract, int P, double *filter1, double *filter2, double *outVect1, double *outVect2, int pos) {
-  int p, pd;
-  double cosTmp0, sinTmp0, val1, val2;
-
-  switch (type) {
-  case 0: /* no output */
-    cosTmp[0] += add;
-    cosTmp[0] -= subtract;
-    for (p = 1 ; p <= P ; ++p) {
-      pd = p - 1; cosTmp0 = cosTmp[p]; sinTmp0 = sinTmp[pd];
-      cosTmp[p]  = cosPara[pd] * cosTmp0 - sinPara[pd] * sinTmp0 + add;
-      sinTmp[pd] = sinPara[pd] * cosTmp0 + cosPara[pd] * sinTmp0;
-      cosTmp[p] -= subtract;
-    }
+  H = (L > K)? K2 : (L + K);
+   switch (extType) {
+  case 0:
+    for (pos = 0     ; pos < L ; ++pos)  lineAdd[pos] = vect[pos];
+    for (pos = K2     ; pos < nInte ; ++pos) lineSub[pos] = vect[pos - K2];
     break;
+  case 1:
+    for (pos = 0     ; pos < L     ; ++pos) lineAdd[pos] = vect[pos];
+    for (pos = L     ; pos < nInte ; ++pos) lineAdd[pos] = vect[L - 1];
+
+    for (pos = K     ; pos < H     ; ++pos) lineSub[pos] = vect[0];
+    for (pos = K2     ; pos < nInte ; ++pos) lineSub[pos] = vect[pos - K2];
+    break;
+  }
+
+  /* Initial value of integral signal */
+  extS = (extType == 0) ? 0.0 : vect[0]; 
+  inte = K * extS;
+  for (p = 0 ; p < P ; ++p) {
+    inteCos[p] = cosInitCoef[p] * extS;
+    inteSin[p] = sinInitCoef[p] * extS;
+  }
+  
+  //printf("Check 1\n");
+  switch (type) {
   case 1: /* cos */
-    cosTmp[0] += add;
-    val1 = filter1[0] * cosTmp[0];
-    cosTmp[0] -= subtract;
-    for (p = 1 ; p <= P ; ++p) {
-      pd = p - 1; cosTmp0 = cosTmp[p]; sinTmp0 = sinTmp[pd];
-      cosTmp[p]  = cosPara[pd] * cosTmp0 - sinPara[pd] * sinTmp0 + add;
-      sinTmp[pd] = sinPara[pd] * cosTmp0 + cosPara[pd] * sinTmp0;
-      val1 += filter1[p] * cosTmp[p];
-      cosTmp[p] -= subtract;
+    for (pos = 0 ; pos < K ; ++pos) {
+      inte += add = lineAdd[pos];
+      for (p = 0 ; p < P ; ++p) {
+	inteCosTmp = inteCos[p]; inteSinTmp = inteSin[p]; 
+	inteCos[p] = cosPara[p] * inteCosTmp - sinPara[p] * inteSinTmp + add;
+	inteSin[p] = sinPara[p] * inteCosTmp + cosPara[p] * inteSinTmp;
+      }
     }
-    outVect1[pos] = val1;
+    for (pos = K ; pos < nInte ; ++pos) {
+      inte += add = lineAdd[pos];
+      val1 = filter1[0] * inte;
+      inte -= sub = lineSub[pos];
+      for (p = 0 ; p < P ; ++p) {
+	inteCosTmp = inteCos[p]; inteSinTmp = inteSin[p]; 
+	inteCos[p] = cosPara[p] * inteCosTmp - sinPara[p] * inteSinTmp + add;
+	inteSin[p] = sinPara[p] * inteCosTmp + cosPara[p] * inteSinTmp;
+	val1 += filter1[p + 1] * inteCos[p];
+	inteCos[p] -= sub;
+      }
+      //printf("val %lf \n", val1); printf("outPos = %d \n", outPos);
+      outVect1[outPos] = val1; outPos += outStep;
+      //printf("Check pos %d \n", pos);
+    }
     break;
   case 2: /* sin */
-    cosTmp[0] += add;
-    val1 = 0.0;
-    cosTmp[0] -= subtract;
-    for (p = 1 ; p <= P ; ++p) {
-      pd = p - 1; cosTmp0 = cosTmp[p]; sinTmp0 = sinTmp[pd];
-      cosTmp[p]  = cosPara[pd] * cosTmp0 - sinPara[pd] * sinTmp0 + add;
-      sinTmp[pd] = sinPara[pd] * cosTmp0 + cosPara[pd] * sinTmp0;
-      val1 += filter1[pd] * sinTmp[pd];
-      cosTmp[p] -= subtract;
+    for (pos = 0 ; pos < K ; ++pos) {
+      inte += add = lineAdd[pos];
+      for (p = 0 ; p < P ; ++p) {
+	inteCosTmp = inteCos[p]; inteSinTmp = inteSin[p]; 
+	inteCos[p] = cosPara[p] * inteCosTmp - sinPara[p] * inteSinTmp + add;
+	inteSin[p] = sinPara[p] * inteCosTmp + cosPara[p] * inteSinTmp;
+      }
     }
-    outVect1[pos] = val1;
+    for (pos = K ; pos < nInte ; ++pos) {
+      inte += add = lineAdd[pos];
+      val1 = 0.0;
+      inte -= sub = lineSub[pos];
+      for (p = 0 ; p < P ; ++p) {
+	inteCosTmp = inteCos[p]; inteSinTmp = inteSin[p]; 
+	inteCos[p] = cosPara[p] * inteCosTmp - sinPara[p] * inteSinTmp + add;
+	inteSin[p] = sinPara[p] * inteCosTmp + cosPara[p] * inteSinTmp;
+	val1 += filter1[p] * inteSin[p];
+	inteCos[p] -= sub;
+      }
+      outVect1[outPos] = val1; outPos += outStep;
+    }
     break;
-  case 3: /* cos cos */
-    cosTmp[0] += add;
-    val1 = filter1[0] * cosTmp[0];
-    val2 = filter2[0] * cosTmp[0];
-    cosTmp[0] -= subtract;
-    for (p = 1 ; p <= P ; ++p) {
-      pd = p - 1; cosTmp0 = cosTmp[p]; sinTmp0 = sinTmp[pd];
-      cosTmp[p]  = cosPara[pd] * cosTmp0 - sinPara[pd] * sinTmp0 + add;
-      sinTmp[pd] = sinPara[pd] * cosTmp0 + cosPara[pd] * sinTmp0;
-      val1 += filter1[p] * cosTmp[p];
-      val2 += filter2[p] * cosTmp[p];
-      cosTmp[p] -= subtract;
+  case 3: /* cos cos for Laplacian  */
+    for (pos = 0 ; pos < K ; ++pos) {
+      inte += add = lineAdd[pos];
+      for (p = 0 ; p < P ; ++p) {
+	inteCosTmp = inteCos[p]; inteSinTmp = inteSin[p]; 
+	inteCos[p] = cosPara[p] * inteCosTmp - sinPara[p] * inteSinTmp + add;
+	inteSin[p] = sinPara[p] * inteCosTmp + cosPara[p] * inteSinTmp;
+      }
     }
-    outVect1[pos] = val1;
-    outVect2[pos] = val2;
+    for (pos = K ; pos < nInte ; ++pos) {
+      inte += add = lineAdd[pos];
+      val1 = filter1[0] * inte;
+      val2 = filter2[0] * inte;
+      inte -= sub = lineSub[pos];
+      for (p = 0 ; p < P ; ++p) {
+	inteCosTmp = inteCos[p]; inteSinTmp = inteSin[p]; 
+	inteCos[p] = cosPara[p] * inteCosTmp - sinPara[p] * inteSinTmp + add;
+	inteSin[p] = sinPara[p] * inteCosTmp + cosPara[p] * inteSinTmp;
+	val1 += filter1[p + 1] * inteCos[p];
+	val2 += filter2[p + 1] * inteCos[p];
+	inteCos[p] -= sub;
+      }
+      outVect1[outPos] = val1;
+      outVect2[outPos] = val2; outPos += outStep;
+    }
     break;
   case 4: /* cos sin */
-    cosTmp[0] += add;
-    val1 = filter1[0] * cosTmp[0];
-    val2 = 0.0;
-    cosTmp[0] -= subtract;
-    for (p = 1 ; p <= P ; ++p) {
-      pd = p - 1; cosTmp0 = cosTmp[p]; sinTmp0 = sinTmp[pd];
-      cosTmp[p]  =  cosPara[pd] * cosTmp0 - sinPara[pd] * sinTmp0 + add;
-      sinTmp[pd] =  sinPara[pd] * cosTmp0 + cosPara[pd] * sinTmp0;
-      val1 += filter1[p]  * cosTmp[p];
-      val2 += filter2[pd] * sinTmp[pd];
-      cosTmp[p] -= subtract;
+    for (pos = 0 ; pos < K ; ++pos) {
+      inte += add = lineAdd[pos];
+      for (p = 0 ; p < P ; ++p) {
+	inteCosTmp = inteCos[p]; inteSinTmp = inteSin[p]; 
+	inteCos[p] = cosPara[p] * inteCosTmp - sinPara[p] * inteSinTmp + add;
+	inteSin[p] = sinPara[p] * inteCosTmp + cosPara[p] * inteSinTmp;
+      }
     }
-    outVect1[pos] = val1;
-    outVect2[pos] = val2;
+    for (pos = K ; pos < nInte ; ++pos) {
+      inte += add = lineAdd[pos];
+      val1 = filter1[0] * inte;
+      val2 = 0.0;
+      inte -= sub = lineSub[pos];
+      for (p = 0 ; p < P ; ++p) {
+	inteCosTmp = inteCos[p]; inteSinTmp = inteSin[p]; 
+	inteCos[p] = cosPara[p] * inteCosTmp - sinPara[p] * inteSinTmp + add;
+	inteSin[p] = sinPara[p] * inteCosTmp + cosPara[p] * inteSinTmp;
+	val1 += filter1[p + 1] * inteCos[p];
+	val2 += filter2[p] * inteSin[p];
+	inteCos[p] -= sub;
+      }
+      outVect1[outPos] = val1;
+      outVect2[outPos] = val2; outPos += outStep;
+    }
+    break;
+  case 5: /* cos with output addition */
+    for (pos = 0 ; pos < K ; ++pos) {
+      inte += add = lineAdd[pos];
+      for (p = 0 ; p < P ; ++p) {
+	inteCosTmp = inteCos[p]; inteSinTmp = inteSin[p]; 
+	inteCos[p] = cosPara[p] * inteCosTmp - sinPara[p] * inteSinTmp + add;
+	inteSin[p] = sinPara[p] * inteCosTmp + cosPara[p] * inteSinTmp;
+      }
+    }
+    for (pos = K ; pos < nInte ; ++pos) {
+      inte += add = lineAdd[pos];
+      val1 = filter1[0] * inte;
+      inte -= sub = lineSub[pos];
+      for (p = 0 ; p < P ; ++p) {
+	inteCosTmp = inteCos[p]; inteSinTmp = inteSin[p]; 
+	inteCos[p] = cosPara[p] * inteCosTmp - sinPara[p] * inteSinTmp + add;
+	inteSin[p] = sinPara[p] * inteCosTmp + cosPara[p] * inteSinTmp;
+	val1 += filter1[p + 1] * inteCos[p];
+	inteCos[p] -= sub;
+      }
+      outVect1[outPos] += val1; outPos += outStep;
+    }
     break;
   }
 }
