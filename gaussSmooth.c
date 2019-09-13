@@ -5,21 +5,23 @@
     type = 0:
       smoothedImg   = gaussSmooth(inImg, type, sigma, P, extType)
     type = 1:
-      [diffX diffY] = gaussSmooth(inImg, type, sigma, P, extType)
+      diff          = gaussSmooth(inImg, type, sigma, P, extType)   (1D data)
+      [diffX diffY] = gaussSmooth(inImg, type, sigma, P, extType)   (2D data)
     type = 2:
       logImg        = gaussSmooth(inImg, type, sigma, P, extType)
   Paramter
-    inImg   : input image
+    inImg   : input image  (1D/2D data)
     type    : 0 blur, 1 diff (two output), 2 : LOG
     sigma   : sigma
     P       : 2 or 4 or 6 : order of Fourier series
     extType :  0: zero extension,  1: the value of edge is used for extension
 
   Output: 
-    smoothImg: Gaussian smoothed image
-    diffX    : Gaussian smoothed x-directional differential image
-    diffY    : Gaussian smoothed x-directional differential image
-    lapImg   : Laplacian of Gaussian smoothed (LOG) image
+    smoothImg: Gaussian smoothed image (1D/2D data)
+    diff     : Gaussian smoothed differential data for 1D data
+    diffX    : Gaussian smoothed x-directional differential image (2D data)
+    diffY    : Gaussian smoothed x-directional differential image (2D data)
+    lapImg   : Laplacian of Gaussian smoothed (LOG) image  (1D/2D data)
 */
 
 #include "mex.h"
@@ -54,7 +56,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   double *xBlurImg, *xTranImg, filter1[7], filter2[7], sigmaPN, sigmaN, sigmaDiffN, interCoefL, interCoefU;
   double *lineExt, *coef0, *coef1, *coef2, coefN; 
   double paraTheta, cosPara[6], sinPara[6], cosInitCoef[6], sinInitCoef[6], *nullD = NULL;
-  int    K, K2, m, n, pos, maxMN, p, pd, P1, interType, interPosC, interPosS;
+  int    K, K2, m, n, pos, maxMN, p, pd, P1, interType, interPosC, interPosS, Dim1 = 0, MDim1;
 
   if (nrhs != 5 ) {
     mexErrMsgIdAndTxt("In0", "Number of parameters are not correct: gaussSmooth(inImg, type, sigma, P, extType)");
@@ -68,33 +70,43 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   P       = (int) mxGetScalar(prhs[3]);
   extType = (int) mxGetScalar(prhs[4]);
 
+ if (M == 1 || N == 1) { /* 1D data */
+   Dim1 = 1;
   /* For output */
-  if (type == 0 || type ==2) {
-    if (nlhs != 1 ) {
-      mexErrMsgIdAndTxt("Out0", "Number of output is not correct: outImg = gaussSmooth(inImg, type, sigma, P, extType)");
-    } else {
-      plhs[0] = mxCreateDoubleMatrix(M, N, mxREAL);
-      outImg1 = mxGetPr(plhs[0]);
-    }
-  } else if (type == 1) {
-    if (nlhs != 2 ) {
-      mexErrMsgIdAndTxt("Out1", "Number of output is not correct: [diffX diffY] = gaussSmooth(inImg, type, sigma, P, extType)");
-    } else {
-      plhs[0] = mxCreateDoubleMatrix(M, N, mxREAL);
-      plhs[1] = mxCreateDoubleMatrix(M, N, mxREAL);
-      outImg1 = mxGetPr(plhs[0]);
-      outImg2 = mxGetPr(plhs[1]);
-    }
-  } else {
-    mexErrMsgIdAndTxt("Out2", "type should be 0 or 1 or 2.");
-  }
+   if (nlhs != 1 ) {
+     mexErrMsgIdAndTxt("Out0", "Number of output is not correct: outImg = gaussSmooth(inImg, type, sigma, P, extType)");
+   } else {
+     plhs[0] = mxCreateDoubleMatrix(M, N, mxREAL);
+     outImg1 = mxGetPr(plhs[0]);
+   }
+ } else { /* 2D case */
+   /* For output */
+   if (type == 0 || type ==2) {
+     if (nlhs != 1 ) {
+       mexErrMsgIdAndTxt("Out0", "Number of output is not correct: outImg = gaussSmooth(inImg, type, sigma, P, extType)");
+     } else {
+       plhs[0] = mxCreateDoubleMatrix(M, N, mxREAL);
+       outImg1 = mxGetPr(plhs[0]);
+     }
+   } else if (type == 1) {
+     if (nlhs != 2 ) {
+       mexErrMsgIdAndTxt("Out1", "Number of output is not correct: [diffX diffY] = gaussSmooth(inImg, type, sigma, P, extType)");
+     } else {
+       plhs[0] = mxCreateDoubleMatrix(M, N, mxREAL);
+       plhs[1] = mxCreateDoubleMatrix(M, N, mxREAL);
+       outImg1 = mxGetPr(plhs[0]);
+       outImg2 = mxGetPr(plhs[1]);
+     }
+   } else {
+     mexErrMsgIdAndTxt("Out2", "type should be 0 or 1 or 2.");
+   }
   
-  /* For work */
-  P1 = P + 1;
-  xBlurImg = (double *) mxMalloc(sizeof(double) * M * N);
-  if (type != 0) {
-    xTranImg = (double *) mxMalloc(sizeof(double) * M * N);
-  }
+   /* For work data (2D data) */
+   xBlurImg = (double *) mxMalloc(sizeof(double) * M * N);
+   if (type != 0) {
+     xTranImg = (double *) mxMalloc(sizeof(double) * M * N);
+   }
+ }
 
   /* Fix K and filter coefficients */
   switch(P) {
@@ -107,9 +119,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   }
 
   /* Decide K */ 
-  K = (int) (sigma * PI / sigmaPN + 0.5);
-  /*  printf("K = %d\n", K); */
+  K  = (int) (sigma * PI / sigmaPN + 0.5);
   K2 = K + K;
+  /* printf("K = %d\n", K); */
 
   /* Line extension  */
   lineExt = (double *) mxMalloc(sizeof(double) * (K2 + ((M > N)? M : N)));
@@ -126,32 +138,33 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   else                       interType = 3;
 
   /* Interporation of Fourier coeficients */
-  interCoefU = (sigmaDiffN - 0.05 * (interType - 2)) / 0.05;
-  interCoefL = 1.0 - interCoefU;
-  interCoefU *= coefN;
-  interCoefL *= coefN;
-  interPosC  = P1 * interType;
-  interPosS  = P  * interType;
+  P1 = P + 1;
+  interCoefU  = (sigmaDiffN - 0.05 * (interType - 2)) / 0.05; /* 0.005 step for normalized sigma */
+  interCoefL  = 1.0 - interCoefU;
+  interCoefU *= coefN;             /* To normize output */
+  interCoefL *= coefN;             /* To normize output */
+  interPosC   = P1 * interType;
+  interPosS   = P  * interType;
   //printf("sigmaDiffN = %lf type = %d  L %lf U %lf  \n",  sigmaDiffN, interType, interCoefL, interCoefU);
+
   switch(type) {
   case 0: /* Gauss smooth */
     for (p = 0 ; p <= P ; ++p) {
-      filter1[p] = interCoefL * coef0[interPosC + p] + interCoefU * coef0[interPosC + P1 + p];
+      filter1[p] = interCoefL * coef0[interPosC + p] + interCoefU * coef0[interPosC + P1 + p]; /* Gauss */
     }
     break;
   case 1: /* Gauss differential */
-    p = 0;
-    filter1[p] = interCoefL * coef0[interPosC + p] + interCoefU * coef0[interPosC + P1 + p];
-    for (p = 1 ; p <= P ; ++p) {
-      pd = p - 1;
-      filter1[p]  = interCoefL * coef0[interPosC + p] + interCoefU * coef0[interPosC + P1 + p];
-      filter2[pd] = interCoefL * coef1[interPosS + pd] + interCoefU * coef1[interPosS + P + pd];
+    for (p = 0 ; p <= P ; ++p) {
+      filter1[p] = interCoefL * coef0[interPosC + p] + interCoefU * coef0[interPosC + P1 + p]; /* Gauss */
+    }
+    for (pd = 0 ; pd <P ; ++pd) {
+      filter2[pd] = interCoefL * coef1[interPosS + pd] + interCoefU * coef1[interPosS + P + pd]; /* differential of Gauss */
     }
     break;
   case 2: /* Gauss Laplacian */
     for (p = 0 ; p <= P ; ++p) {
-      filter1[p] = interCoefL * coef0[interPosC + p] + interCoefU * coef0[interPosC + P1 + p];
-      filter2[p] = interCoefL * coef2[interPosC + p] + interCoefU * coef2[interPosC + P1 + p];
+      filter1[p] = interCoefL * coef0[interPosC + p] + interCoefU * coef0[interPosC + P1 + p];  /* Gauss */
+      filter2[p] = interCoefL * coef2[interPosC + p] + interCoefU * coef2[interPosC + P1 + p];  /* Laplacian */
     }
     break;
   }
@@ -166,7 +179,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
       cosInitCoef[p] = K;
       sinInitCoef[p] = 0.0;
     } else if ((p + 1) % 2 == 0) {
-      cosInitCoef[p]     = 0.0;
+      cosInitCoef[p] = 0.0;
       sinInitCoef[p] = 0.0;
     } else {
       cosInitCoef[p] = 1.0;
@@ -174,6 +187,25 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     }
   }
 
+  if (Dim1 == 1) {  /* 1D case */
+    MDim1 = (M > 1)? M : N;
+    /* Transformation */
+    if (extType == 0) {
+      for (pos = 0     ; pos < K      ; ++pos) lineExt[pos] = 0.0;
+      for (pos = MDim1 + K ; pos < MDim1 + K2 ; ++pos) lineExt[pos] = 0.0;
+    }
+    switch(type) {
+    case 0: /* Gauss smooth */
+      slideFilterExt(1, inImg, MDim1, K, extType, P, cosPara, sinPara, cosInitCoef, sinInitCoef, filter1, nullD,  outImg1, nullD, 1, lineExt);
+      break;
+    case 1: /* Differential of Gauss */
+      slideFilterExt(2, inImg, MDim1, K, extType, P, cosPara, sinPara, cosInitCoef, sinInitCoef, filter2, nullD, outImg1, nullD, 1, lineExt);
+      break;
+    case 2: /* Laplacian of Gauss */
+      slideFilterExt(1, inImg, MDim1, K, extType, P, cosPara, sinPara, cosInitCoef, sinInitCoef, filter2, nullD, outImg1, nullD, 1, lineExt);
+      break;
+    }
+  } else {  /* 2D case */
     /* Vertical transformation */
     if (extType == 0) {
       for (pos = 0     ; pos < K      ; ++pos) lineExt[pos] = 0.0;
@@ -184,10 +216,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
       case 0: /* Gauss smooth */
 	slideFilterExt(1, & (inImg[n * M]), M, K, extType, P, cosPara, sinPara, cosInitCoef, sinInitCoef, filter1, nullD, &(xBlurImg[n]), nullD, N, lineExt);
 	break;
-      case 1: /* Gauss differential */
+      case 1: /* Differential of Gauss */
 	slideFilterExt(4, & (inImg[n * M]), M, K, extType, P, cosPara, sinPara, cosInitCoef, sinInitCoef, filter1, filter2, &(xBlurImg[n]), &(xTranImg[n]), N, lineExt);
 	break;
-      case 2:
+      case 2: /* Laplacian of Gauss */
 	slideFilterExt(3, & (inImg[n * M]), M, K, extType, P, cosPara, sinPara, cosInitCoef, sinInitCoef, filter1, filter2, &(xBlurImg[n]), &(xTranImg[n]), N, lineExt);
 	break;
       }
@@ -203,21 +235,22 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
       case 0: /* Gauss smooth */
 	slideFilterExt(1, & (xBlurImg[m * N]), N, K, extType, P, cosPara, sinPara, cosInitCoef, sinInitCoef, filter1, nullD, &(outImg1[m]), nullD, M, lineExt);
 	break;
-      case 1: /* Gauss differential */
+      case 1: /* Differential of Gauss */
 	slideFilterExt(2, & (xBlurImg[m * N]), N, K, extType, P, cosPara, sinPara, cosInitCoef, sinInitCoef, filter2, nullD, &(outImg1[m]), nullD, M, lineExt);
 	slideFilterExt(1, & (xTranImg[m * N]), N, K, extType, P, cosPara, sinPara, cosInitCoef, sinInitCoef, filter1, nullD, &(outImg2[m]), nullD, M, lineExt);
 	break;
-      case 2: /* Gauss Laplacian */
+      case 2: /* Laplacian of Gauss */
 	slideFilterExt(1, & (xTranImg[m * N]), N, K, extType, P, cosPara, sinPara, cosInitCoef, sinInitCoef, filter1, nullD, &(outImg1[m]), nullD, M, lineExt);
 	slideFilterExt(5, & (xBlurImg[m * N]), N, K, extType, P, cosPara, sinPara, cosInitCoef, sinInitCoef, filter2, nullD, &(outImg1[m]), nullD, M, lineExt);
 	break;
       }
     }
-  
-  /* Free memories */
-  mxFree(xBlurImg);
+    /* Free work memories */
+    mxFree(xBlurImg);
+    if (type != 0)  mxFree(xTranImg);
+  }
   mxFree(lineExt);
-  if (type != 0)  mxFree(xTranImg);
+  
   return;
 }
 
@@ -226,10 +259,10 @@ void slideFilterExt(int type, double *vect, int L, int K, int extType, int P, do
   double inte, inteCos[6], inteSin[6], extS, inteCosTmp, inteSinTmp, add, sub, val1, val2;
   int p, ordPos, pos, outPos = 0, K2 = K + K;
 
-  for (pos = 0     ; pos < L ; ++pos)     lineExt[pos + K] = vect[pos];
+  for (pos = 0 ; pos < L ; ++pos) lineExt[pos + K] = vect[pos];
   if (extType == 1) {
+    for (pos = 0     ; pos < K      ; ++pos) lineExt[pos] = vect[0];
     for (pos = L + K ; pos < L + K2 ; ++pos) lineExt[pos] = vect[L - 1];
-    for (pos = 0     ; pos < K     ; ++pos)  lineExt[pos] = vect[0];
   }
 
   /* Initial value of integral signal */

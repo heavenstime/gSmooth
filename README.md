@@ -7,27 +7,31 @@
 * gaussSmooth.pdf
 
 ## A mex function for Gaussian smoothing (with x and y-directional differential and LOG)
-The latest version. It works only by the mex function.  
+The latest version. It works only by the mex function.  1D and 2D data are seperatly handled. 
   
 * gaussSmooth.c
   * Usage:
     * type = 0:  (Gauss smoothing)  
       `smoothedImg   = gaussSmooth(inImg, type, sigma, P, extType)`  
     * type = 1:  (x and y-directional differential with Gauss smoothing)  
+        * 1D Data  
+      `diff = gaussSmooth(inImg, type, sigma, P, extType)`  
+        * 2D Data  
       `[diffX diffY] = gaussSmooth(inImg, type, sigma, P, extType)`  
     * type = 2:  (Laplacian of Gaussian)  
       `logImg        = gaussSmooth(inImg, type, sigma, P, extType)`  
   * Paramter:
-    * inImg   : input image  
-    * type    : 0 blur, 1 diff (two outputs), 2 : LOG  
+    * inImg   : input image  (1D/2D data)
+    * type    : 0 blur, 1 diff (one or two outputs), 2 : LOG  
     * sigma   : sigma  
     * P       : 2 or 4 or 6 : order of Fourier series  
     * extType :  0: zero extension,  1: the value of edge is used for extension  
   * Output: (The number of output is one or two.)
-    * smoothImg: Gaussian smoothed image
-    * diffX    : Gaussian smoothed x-directional differential image  
-    * diffY    : Gaussian smoothed x-directional differential image  
-    * lapImg   : Laplacian of Gaussian smoothed (LOG) image  
+    * smoothImg: Gaussian smoothed image (1D/2D data)
+    * diff     : Gaussian smoothed differential data (1D data)
+    * diffX    : Gaussian smoothed x-directional differential image  (2D data)
+    * diffY    : Gaussian smoothed x-directional differential image  (2D data)
+    * lapImg   : Laplacian of Gaussian smoothed (LOG) image  (1D/2D data)
   
 * testSmooth.m : main program for test.  
   
