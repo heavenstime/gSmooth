@@ -24,6 +24,7 @@
     lapImg   : Laplacian of Gaussian smoothed (LOG) image  (1D/2D data)
 */
 
+
 #include "mex.h"
 #include <math.h>
 #define PI 3.14159265

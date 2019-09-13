@@ -1,4 +1,4 @@
-type    = 0; % type  : 0 smooth, 1 diffX 2 : diffY, 2 : LOG
+type    = 0; % type : 0 (smooth), 1 (diffX),  2 (diffY), 3 (LOG)
 sigma   = 11.5;
 P       = 4;
 extType = 1; % extType :  0: zero extension,  1: the value of edge is used for extension

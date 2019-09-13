@@ -7,7 +7,8 @@
 * gaussSmooth.pdf
 
 ## A mex function for Gaussian smoothing (with x and y-directional differential and LOG)
-The latest version. It works only by the mex function.  1D and 2D data are seperatly handled. 
+The latest version. It works only by the mex function.  
+1D and 2D data are seperatly handled. 
   
 * gaussSmooth.c
   * Usage:
