@@ -1,6 +1,6 @@
 # gaussSmooth
 * The programs are licenced by GPL v3. 
-* Gaussian smoothing (with x and y-directional differential and LOG) are approximately calculated by using sliding discrete Fourier transform of order P (= 1, 2, 3, 4, 5, or 6).
+* Gaussian smoothing (with x and y-directional differential and LOG (Laplacian of Gaussian) are approximately calculated by using sliding discrete Fourier transform of order P (= 1, 2, 3, 4, 5, or 6).
 * Let M, N, and K be the numbers of pixcels for vertical, horizontal, and window sizes, then the calculation complexity is (M + K) * (N + K) * P. 
 
 ## File for the explanation of the algorithm.
@@ -40,7 +40,7 @@ The latest version. It works only by the mex function.
 * img1.pgm     : Boat image for test.  
 
 ## A matlab program for calculate coefficients and truncation errors
-* totalError.m : main program (Older version. It will be updated.)
+* totalError.m : main program (A older version. It will be updated.)
   * output
     * coefficientsForC.txt : coefficients for C program.
     * dataPlotFunc.txt : data to plot function of approximated and true Gaussian function
