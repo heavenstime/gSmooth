@@ -1,6 +1,6 @@
 # gaussSmooth
 * The programs are licenced by GPL v3. 
-* Gaussian smoothing (with x and y-directional differential and LOG) are approximately calculated by using sliding discrete Fourier transform of order P (= 2, 4, or 6).
+* Gaussian smoothing (with x and y-directional differential and LOG) are approximately calculated by using sliding discrete Fourier transform of order P (= 1, 2, 3, 4, 5, or 6).
 * Let M, N, and K be the numbers of pixcels for vertical, horizontal, and window sizes, then the calculation complexity is (M + K) * (N + K) * P. 
 
 ## File for the explanation of the algorithm.
@@ -12,20 +12,21 @@ The latest version. It works only by the mex function.
   
 * gaussSmooth.c
   * Usage:
-    * type = 0:  (Gauss smoothing)  
+    * type = 0 or 10:  (Gauss smoothing)  
       `smoothedImg   = gaussSmooth(inImg, type, sigma, P, extType)`  
-    * type = 1:  (x and y-directional differential with Gauss smoothing)  
+    * type = 1 or 11:  (x and y-directional differential with Gauss smoothing)  
         * 1D Data  
       `diff = gaussSmooth(inImg, type, sigma, P, extType)`  
         * 2D Data  
       `[diffX diffY] = gaussSmooth(inImg, type, sigma, P, extType)`  
-    * type = 2:  (Laplacian of Gaussian)  
-      `logImg        = gaussSmooth(inImg, type, sigma, P, extType)`  
+    * type = 2 or 12:  (Laplacian of Gaussian)  
+      `logImg        = gaussSmooth(inImg, type, sigma, P, extType)`
+    * (type = 10, 11, and 12 are boundary smoothed versions of type = 0, 1, and 2, respectively)
   * Paramter:
     * inImg   : input image  (1D/2D data)
     * type    : 0 blur, 1 diff (one or two outputs), 2 : LOG  
     * sigma   : sigma  
-    * P       : 2 or 4 or 6 : order of Fourier series  
+    * P       : 1, 2, 3, 4, 5, or 6 : order of Fourier series  
     * extType :  0: zero extension,  1: the value of edge is used for extension  
   * Output: (The number of output is one or two.)
     * smoothImg: Gaussian smoothed image (1D/2D data)
@@ -34,12 +35,12 @@ The latest version. It works only by the mex function.
     * diffY    : Gaussian smoothed x-directional differential image  (2D data)
     * lapImg   : Laplacian of Gaussian smoothed (LOG) image  (1D/2D data)
   
-* testSmooth.m : main program for test.  
+* testMex3.m   : main program to test gaussSmooth.
   
 * img1.pgm     : Boat image for test.  
 
 ## A matlab program for calculate coefficients and truncation errors
-* totalError.m : main program
+* totalError.m : main program (Older version. It will be updated.)
   * output
     * coefficientsForC.txt : coefficients for C program.
     * dataPlotFunc.txt : data to plot function of approximated and true Gaussian function
